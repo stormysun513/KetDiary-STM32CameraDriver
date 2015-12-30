@@ -4,9 +4,6 @@
 #include "stm32f4xx_i2c.h"
 #include "stm32f4xx_usart.h"
 
-#define MAX_TIMEOUT		2000
-#define TIMED(A)		while(A){if(Timeout == 0)return false;}\
-                                Timeout = max_timeout;
 
 void SerialInterfaceInit();
 

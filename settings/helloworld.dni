@@ -23,11 +23,11 @@ ShowSource=1
 Freq=10000000
 MultiCoreRunAll=1
 [StLinkDriver]
-stlinkserialNo=0D7C9443
+stlinkserialNo=2798FD0D
 stlinkfoundProbes=
 CStepIntDis=_ 0
 [DebugChecksum]
-Checksum=-1140370252
+Checksum=-2022354268
 [Exceptions]
 StopOnUncaught=_ 0
 StopOnThrow=_ 0
@@ -94,16 +94,6 @@ ShowTimeLog=1
 SumEnabled=0
 ShowTimeSum=1
 SumSortOrder=0
-[DriverProfiling]
-Enabled=0
-Mode=3
-Graph=0
-Symbiont=0
-Exclusions=
-[CallStackLog]
-Enabled=0
-[CallStackStripe]
-ShowTiming=1
 [Disassemble mode]
 mode=0
 [Breakpoints2]
@@ -115,6 +105,16 @@ Category=_ 0
 [Aliases]
 Count=0
 SuppressDialog=0
+[DriverProfiling]
+Enabled=0
+Mode=3
+Graph=0
+Symbiont=0
+Exclusions=
+[CallStackLog]
+Enabled=0
+[CallStackStripe]
+ShowTiming=1
 [TermIOLog]
 LoggingEnabled=_ 0
 LogFile=_ ""

@@ -53,6 +53,7 @@ void SysTick_Handler(void);
 
 /* Peripheral interrupt handler */
 void USART2_IRQHandler(void);
+void DCMI_IRQHandler(void);
 
 #ifdef __cplusplus
 }

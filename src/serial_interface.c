@@ -1,26 +1,33 @@
 #include <cstring>
-
 #include "stm32f4xx_usart.h"
+
+#include "main.h"
 #include "ring_buffer.h"
 #include "serial_interface.h"
+#include "camera_api.h"
 
 #define FIRST_PREAMBLE		0xFF
 #define SECOND_PREAMBLE		0x7F
+
+
+#define MAX_TIMEOUT		2000
+#define TIMED(A)		while(A){if(Timeout == 0)return false;}\
+                                Timeout = max_timeout;
 
 static volatile bool isFirstUartPreamble = false;
 static volatile bool isSecondUartPreamble = false;
 
 const char TYPE1 = 0x01;      //ECG
-//extern const BYTE TYPE2;      //ACC
-//extern const BYTE TYPE3;      //TMP
+const char TYPE2 = 0x02;      //ACC
+const char TYPE3 = 0x03;      //TMP
 
 static RingBuffer uart_rx_buf;
 
 extern __IO int32_t Timeout;
-static int32_t max_timeout = MAX_TIMEOUT;
+extern int32_t max_timeout;
 
 void SerialInterfaceInit(){
-	RingBuffer_init(&uart_rx_buf);
+  RingBuffer_init(&uart_rx_buf);
 }
 
 bool UartInsertByte(char byte){
@@ -48,8 +55,25 @@ void UartPktParse(){
       }
       else{
         //Uart Packet with accurate header
-        if(byte == TYPE1)
+        switch (byte){
+        case TYPE1:
           UartPrint(USART2, "OK!\n");
+          switch (appStateTypeDef){
+          case CAPTURED:
+            appStateTypeDef = IDLE;
+            break;
+          case IDLE:
+            appStateTypeDef = CAPTURECMD;
+            break;
+          default:
+            break;
+          }
+        case TYPE2:
+        case TYPE3:
+        default:
+          break;
+        }
+        
         isFirstUartPreamble = false;
         isSecondUartPreamble = false;
         break;

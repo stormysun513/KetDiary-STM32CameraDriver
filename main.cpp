@@ -1,21 +1,26 @@
 #include <cstdio>
-
-#include "stm32f4xx.h"
 #include "stm32f4_discovery.h"
 
 #include "main.h"
+#include "sccb.h"
 #include "serial_interface.h"
 #include "sensor_address.h"
 #include "application.h"
+#include "camera_api.h"
+#include "dcmi_ov2640.h"
 
 #define BAUDRATE                115200
-#define I2C_CLOCK_SPEED         10000
+#define I2C_CLOCK_SPEED         100000
 #define OWN_ADDR                0x3C
 
 extern __IO uint32_t TimmingDelay;
 
 RCC_ClocksTypeDef RCC_Clocks;
 char DebugString[50];
+uint8_t result[5];
+volatile uint16_t image[IMAGE_SIZE] = {0};
+
+volatile AppStateTypeDef appStateTypeDef = IDLE;
 
 int main()
 { 
@@ -119,6 +124,7 @@ int main()
   *
   * Initialize NVIC
   */
+  NVIC_PriorityGroupConfig(NVIC_PriorityGroup_3);
   NVIC_InitStruct.NVIC_IRQChannel = USART2_IRQn;
   NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;
   NVIC_InitStruct.NVIC_IRQChannelPreemptionPriority = 0;
@@ -126,20 +132,67 @@ int main()
   NVIC_Init(&NVIC_InitStruct);
   
   //Systick Configuration
-  SysTick_Config(SystemCoreClock/1000);
+  SysTick_Config(SystemCoreClock/10000);        // Minimum delay unit: 100us
   
   //DEBUG PURPOSE
   RCC_GetClocksFreq(&RCC_Clocks); 
-  UartPrint(USART2, "Initialized successfully.\n");
+  UartPrint(USART2, "Peripherals are initialized successfully.\n");
   
-  uint8_t result[10]; 
+  if(I2CReadMulti(I2C2, (uint8_t)TMP102_ADDR, result, 2)){
+    float celcius = computeTemperature(result[0], result[1]);
+    sprintf(DebugString, "Temp : %4.2f\n", celcius);
+    UartPrint(USART2, DebugString);
+  }
+  else{
+    UartPrint(USART2, "I2C failed.\n");
+  }
+  
+  //Initialize OV2640
+  SCCB_GPIO_Config(); 
+  DelayMs(1);
+  
+  OV2640_IDTypeDef OV2640ID;
+  OV2640_ReadID(&OV2640ID);
+  Camera_Config();
+  if(OV2640ID.PIDH == OV2640_ID)
+    UartPrint(USART2, "Camera is initialized.\n");
+  else
+    UartPrint(USART2, "Camera failed.\n");
+//  GPIO_ToggleBits(GPIOD, GPIO_Pin_12);
+  
+  appStateTypeDef = CAPTURECMD;
+   
+  int i = 0;
   //LED Toggle
   while(1){
     //Insert a delay of 500ms
-    Delay(500);
+    DelayMs(500);
     
     //Toggle the LED
     GPIO_ToggleBits(GPIOD, GPIO_Pin_15);
+    
+    switch (appStateTypeDef) {
+    case CAPTURECMD:
+      CameraCapture();
+      appStateTypeDef = CAPTURING;
+      i = 0;
+      break;
+    case CAPTURED:
+      sprintf(DebugString, "Debug : 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x\n",
+                                    image[i+0], image[i+1], image[i+2], image[i+3], image[i+4]);
+      UartPrint(USART2, DebugString);
+      i += 5;
+      if(i >= 19200)
+        i = 0;
+      break;
+    case CAPTURING:
+    case IDLE:
+    default:
+      break;
+    }
+  
+
+    
     
 //    if(GPIO_ReadOutputDataBit(GPIOD, GPIO_Pin_15) == RESET){
 //      if(I2CReadMulti(I2C2, (uint8_t)TMP102_ADDR, result, 2)){
@@ -153,8 +206,20 @@ int main()
   return 0;
 }
 
-void Delay(__IO uint32_t time){
-  TimmingDelay = time;
+/**
+  * @brief  Inserts a delay time.
+  * @param  nTime: specifies the delay time length, in milliseconds
+  * @retval None
+  */
+void DelayMs(__IO uint32_t time){
+  TimmingDelay = time*10;
+  while(TimmingDelay != 0){
+    __WFI();
+  }
+}
+
+void DelayUs(__IO uint32_t time){
+  TimmingDelay = time/100;
   while(TimmingDelay != 0){
     __WFI();
   }

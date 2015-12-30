@@ -29,7 +29,9 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_it.h"
-//#include "main.h"
+#include "stm32f4xx_dcmi.h"
+#include "main.h"
+#include "camera_api.h"
 #include "serial_interface.h"
 
 /** @addtogroup Template_Project
@@ -142,6 +144,7 @@ void PendSV_Handler(void)
   */
 __IO uint32_t TimmingDelay;
 __IO int32_t Timeout;
+int32_t max_timeout;
 void SysTick_Handler(void)
 {
   if(TimmingDelay != 0)
@@ -172,7 +175,7 @@ void SysTick_Handler(void)
   */ 
 
 /**********************************************************
- * USART1 interrupt request handler: on reception of a 
+ * USART2 interrupt request handler: on reception of a 
  * character 't', toggle LED and transmit a character 'T'
  *********************************************************/
 #define USART_FLAG_ERRORS (USART_FLAG_ORE | USART_FLAG_NE | USART_FLAG_FE | USART_FLAG_PE)
@@ -189,12 +192,64 @@ void USART2_IRQHandler(void)
     if(available >= 3){
       UartPktParse();
     }
+    USART_ClearITPendingBit(USART2, USART_IT_RXNE);
   }
   /* ------------------------------------------------------------ */
   /* Other USART2 interrupts handler can go here ...   
   */
-  USART_ClearITPendingBit(USART2, USART_IT_RXNE);
-}   
+}
+
+int count = 0;
+int start = 0;
+void DCMI_IRQHandler(void)
+{
+  if(DCMI_GetFlagStatus(DCMI_FLAG_VSYNCRI) == SET)
+  {
+    if(start == 0)
+    {
+      start = 1;
+    }
+    else
+    {
+      start = 0;
+    }
+    DCMI_ClearFlag(DCMI_FLAG_VSYNCRI);
+  }
+  else if(DCMI_GetFlagStatus(DCMI_FLAG_LINERI) == SET)
+  {
+    if(start == 1)
+    {
+      count++;
+    }
+    else
+    {
+      if(count != 0)
+      {
+        //printf("count: %d \n\n", count); //just dor counting the number of line
+      }
+      count = 0;
+    }
+    DCMI_ClearFlag(DCMI_FLAG_LINERI);
+  }
+  else if(DCMI_GetFlagStatus(DCMI_FLAG_FRAMERI) == SET)
+  {
+    UartPrint(USART2, "DCMI_FLAG_FRAMERI \n\n");
+    appStateTypeDef = CAPTURED;
+    DCMI_CaptureCmd(DISABLE);
+    CameraInterfaceReset(); 
+    DCMI_ClearFlag(DCMI_FLAG_FRAMERI);
+  }
+  else if(DCMI_GetFlagStatus(DCMI_FLAG_ERRRI) == SET)
+  {
+    UartPrint(USART2,"DCMI_FLAG_ERRRI \n\n");
+    DCMI_ClearFlag(DCMI_FLAG_ERRRI);
+  }
+  else if(DCMI_GetFlagStatus(DCMI_FLAG_OVFRI) == SET)
+  {
+    UartPrint(USART2,"DCMI_FLAG_OVFRI \n\n");  //********** Unfortunately.. my code always comes here
+    DCMI_ClearFlag(DCMI_FLAG_OVFRI);
+  }
+}
 
 
 

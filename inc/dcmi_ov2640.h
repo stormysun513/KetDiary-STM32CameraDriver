@@ -30,6 +30,7 @@
 #define __DCMI_OV2640_H
 
 /* Includes ------------------------------------------------------------------*/
+    
 #include "camera_api.h"
 
 /* Exported types ------------------------------------------------------------*/
@@ -50,8 +51,10 @@ typedef struct
    value has been set for system running at 168 MHz. */
 #define DCMI_TIMEOUT_MAX               10000
 
-#define OV2640_DEVICE_WRITE_ADDRESS    0x60
-#define OV2640_DEVICE_READ_ADDRESS     0x61
+#define OV2640_DEVICE_WRITE_ADDRESS     0x60
+#define OV2640_DEVICE_READ_ADDRESS      0x61
+     
+#define  OV2640_ID              0x26
 
 /* OV2640 Registers definition when DSP bank selected (0xFF = 0x00) */
 #define OV2640_DSP_R_BYPASS     0x05
@@ -151,8 +154,14 @@ void OV2640_BrightnessConfig(uint8_t Brightness);
 void OV2640_ContrastConfig(uint8_t value1, uint8_t value2);
 void OV2640_BandWConfig(uint8_t BlackWhite);
 void OV2640_ColorEffectsConfig(uint8_t value1, uint8_t value2);
-uint8_t OV2640_WriteReg(uint16_t Addr, uint8_t Data);
-uint8_t OV2640_ReadReg(uint16_t Addr);
+
+void OV2640_Interrupt_Disable(void);
+void OV2640_Interrupt_Enable(void);
+void OV2640_DMA_Init(void);
+void OV2640_DCMI_Init(ImageFormat_TypeDef ImageFormat);
+void OV2640_ResetDMAAddress(void);
+//uint8_t OV2640_WriteReg(uint16_t Addr, uint8_t Data);
+//uint8_t OV2640_ReadReg(uint16_t Addr);
 
 #endif /* __DCMI_OV2640_H */
 
