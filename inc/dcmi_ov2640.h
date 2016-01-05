@@ -160,8 +160,6 @@ void OV2640_Interrupt_Enable(void);
 void OV2640_DMA_Init(void);
 void OV2640_DCMI_Init(ImageFormat_TypeDef ImageFormat);
 void OV2640_ResetDMAAddress(void);
-//uint8_t OV2640_WriteReg(uint16_t Addr, uint8_t Data);
-//uint8_t OV2640_ReadReg(uint16_t Addr);
 
 #endif /* __DCMI_OV2640_H */
 

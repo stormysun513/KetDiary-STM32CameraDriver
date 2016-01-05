@@ -28,8 +28,10 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
+#include "stm32f4xx.h"
 #include "stm32f4xx_it.h"
 #include "stm32f4xx_dcmi.h"
+#include "stm32f4xx_dma.h"
 #include "main.h"
 #include "camera_api.h"
 #include "serial_interface.h"
@@ -248,6 +250,19 @@ void DCMI_IRQHandler(void)
   {
     UartPrint(USART2,"DCMI_FLAG_OVFRI \n\n");  //********** Unfortunately.. my code always comes here
     DCMI_ClearFlag(DCMI_FLAG_OVFRI);
+  }
+}
+
+void DMA1_Stream6_IRQHandler(void){
+  if(DMA_GetFlagStatus(DMA1_Stream6, DMA_FLAG_TCIF6) == SET)
+  {
+    DMA1_Interrupt_Disable();
+    USART_DMACmd(USART2, USART_DMAReq_Tx, DISABLE);
+    DMA_Cmd(DMA1_Stream6, DISABLE);
+    
+    usartTransStateTypeDef = USART_IDLE;
+//    UartPrint(USART2,"DMA1 finished \n\n"); 
+    DMA_ClearFlag(DMA1_Stream6, DMA_FLAG_TCIF6);
   }
 }
 

@@ -20,11 +20,14 @@ static volatile bool isSecondUartPreamble = false;
 const char TYPE1 = 0x01;      //ECG
 const char TYPE2 = 0x02;      //ACC
 const char TYPE3 = 0x03;      //TMP
+char preamble[] = {0xFF, 0xFF, 0x7F};
 
 static RingBuffer uart_rx_buf;
+USARTTransStateTypeDef usartTransStateTypeDef = USART_IDLE;
 
 extern __IO int32_t Timeout;
 extern int32_t max_timeout;
+extern uint16_t image[IMAGE_SIZE];
 
 void SerialInterfaceInit(){
   RingBuffer_init(&uart_rx_buf);
@@ -60,16 +63,25 @@ void UartPktParse(){
           UartPrint(USART2, "OK!\n");
           switch (appStateTypeDef){
           case CAPTURED:
-            appStateTypeDef = IDLE;
+            appStateTypeDef = CAMERAIDLE;
             break;
-          case IDLE:
+          case CAMERAIDLE:
             appStateTypeDef = CAPTURECMD;
             break;
           default:
             break;
           }
+          break;
         case TYPE2:
+          if(appStateTypeDef == CAPTURED)
+            appStateTypeDef = CAMERAIDLE;
+          UartPrintBuf(USART2, preamble, 3);
+          UartDMASend();
+          break;
         case TYPE3:
+//          UartPrint(USART2, "Debug!\n");
+          UartPrintBuf(USART2, preamble, 3);
+          break;
         default:
           break;
         }
@@ -82,7 +94,10 @@ void UartPktParse(){
   }
 }
 
-void UartPrint(USART_TypeDef* USARTx, const char* buf){
+bool UartPrint(USART_TypeDef* USARTx, const char* buf){
+  if(usartTransStateTypeDef == USART_TRANSFERING)
+    return false;
+  
   int length = strlen(buf);
   int i;
   for(i = 0; i < length; i++){
@@ -97,9 +112,60 @@ void UartPrint(USART_TypeDef* USARTx, const char* buf){
     while(!(USARTx->SR & USART_FLAG_TC));
     USARTx->SR |= USART_FLAG_TC;
   }
+  return true;
 }
 
-void UartPrintBuf(const char* buf, int len){
+bool UartPrintBuf(USART_TypeDef* USARTx, char* buf, int length){
+  if(usartTransStateTypeDef == USART_TRANSFERING)
+    return false;
+   
+  int i;
+  for(i = 0; i < length; i++){
+    /* Wait until Tx data register is empty, not really 
+    * required for this example but put in here anyway.
+    */
+    // Chech RTE9.pdf for more information
+    // Check whether TXE is set
+    while(!(USARTx->SR & USART_FLAG_TXE) );
+    USART_SendData(USARTx, buf[i]);
+    // Check whether TC is set
+    while(!(USARTx->SR & USART_FLAG_TC));
+    USARTx->SR |= USART_FLAG_TC;
+  }
+  
+  return true;
+}
+    
+void DMA1_Interrupt_Enable(void){
+  NVIC_InitTypeDef NVIC_InitStruct;
+  
+  /* Configure the Priority Group to 2 bits */
+  NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
+ 
+  /* Enable the UART2 RX DMA Interrupt */
+  NVIC_InitStruct.NVIC_IRQChannel = DMA1_Stream6_IRQn;
+  NVIC_InitStruct.NVIC_IRQChannelPreemptionPriority = 0;
+  NVIC_InitStruct.NVIC_IRQChannelSubPriority = 0;
+  NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;
+  NVIC_Init(&NVIC_InitStruct);
+}
+
+void DMA1_Interrupt_Disable(void){
+  NVIC_DisableIRQ(DMA1_Stream6_IRQn);
+}
+
+bool UartDMASend(){
+  if(usartTransStateTypeDef == USART_IDLE){
+    DMA1_Stream6->M0AR = (uint32_t)image;
+    DMA_Cmd(DMA1_Stream6, ENABLE);
+    DMA1_Interrupt_Enable();
+    
+    USART_DMACmd(USART2, USART_DMAReq_Tx, ENABLE);
+    usartTransStateTypeDef = USART_TRANSFERING;
+    return true;
+  }
+  else
+    return false;
 }
 
 bool I2CStart(I2C_TypeDef* I2Cx, uint8_t address, uint8_t direction){

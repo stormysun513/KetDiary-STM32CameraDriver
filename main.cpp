@@ -20,7 +20,7 @@ char DebugString[50];
 uint8_t result[5];
 volatile uint16_t image[IMAGE_SIZE] = {0};
 
-volatile AppStateTypeDef appStateTypeDef = IDLE;
+volatile AppStateTypeDef appStateTypeDef = CAMERAIDLE;
 
 int main()
 { 
@@ -131,6 +131,41 @@ int main()
   NVIC_InitStruct.NVIC_IRQChannelSubPriority = 0;
   NVIC_Init(&NVIC_InitStruct);
   
+  /* DMA1 clock enable */
+  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_DMA1, ENABLE);
+  
+  /* DMA1 Configuration for USART2*/
+  DMA_InitTypeDef  DMA_InitStructure;
+ 
+  DMA_DeInit(DMA1_Stream6);
+ 
+  DMA_InitStructure.DMA_Channel = DMA_Channel_4;
+  DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral; // Transmit
+  DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)image;
+  DMA_InitStructure.DMA_BufferSize = (uint32_t)IMAGE_SIZE*2;
+  DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&(USART2->DR);
+  DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+  DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
+  DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
+  DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
+  DMA_InitStructure.DMA_Mode = DMA_Mode_Circular;
+  DMA_InitStructure.DMA_Priority = DMA_Priority_High;
+  DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Enable;
+  DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
+  DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
+  DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
+ 
+  DMA_Init(DMA1_Stream6, &DMA_InitStructure);
+ 
+//  /* Enable the USART Tx DMA request */
+//  USART_DMACmd(UART5, USART_DMAReq_Tx, ENABLE);
+ 
+  /* Enable DMA Stream Transfer Complete interrupt */
+  DMA_ITConfig(DMA1_Stream6, DMA_IT_TC, ENABLE);
+ 
+//  /* Enable the DMA RX Stream */
+//  DMA_Cmd(DMA1_Stream6, ENABLE);
+  
   //Systick Configuration
   SysTick_Config(SystemCoreClock/10000);        // Minimum delay unit: 100us
   
@@ -178,29 +213,18 @@ int main()
       i = 0;
       break;
     case CAPTURED:
-      sprintf(DebugString, "Debug : 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x\n",
-                                    image[i+0], image[i+1], image[i+2], image[i+3], image[i+4]);
-      UartPrint(USART2, DebugString);
-      i += 5;
-      if(i >= 19200)
-        i = 0;
-      break;
+//      sprintf(DebugString, "Debug : 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x\n",
+//                                    image[i+0], image[i+1], image[i+2], image[i+3], image[i+4]);
+//      UartPrint(USART2, DebugString);
+//      i += 5;
+//      if(i >= 19200)
+//        i = 0;
+//      break;
     case CAPTURING:
-    case IDLE:
+    case CAMERAIDLE:
     default:
       break;
     }
-  
-
-    
-    
-//    if(GPIO_ReadOutputDataBit(GPIOD, GPIO_Pin_15) == RESET){
-//      if(I2CReadMulti(I2C2, (uint8_t)TMP102_ADDR, result, 2)){
-//        float celcius = computeTemperature(result[0], result[1]);
-//        sprintf(DebugString, "Temp : %4.2f\n", celcius);
-//        UartPrint(USART2, DebugString);
-//      }
-//    }
   }
 
   return 0;

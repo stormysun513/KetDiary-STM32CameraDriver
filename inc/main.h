@@ -8,7 +8,7 @@ void DelayMs(__IO uint32_t time);
 void DelayUs(__IO uint32_t time);
 
 typedef enum{
-  IDLE,
+  CAMERAIDLE,
   CAPTURECMD,
   CAPTURING,
   CAPTURED
