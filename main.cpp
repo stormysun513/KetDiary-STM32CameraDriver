@@ -142,13 +142,13 @@ int main()
   DMA_InitStructure.DMA_Channel = DMA_Channel_4;
   DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral; // Transmit
   DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)image;
-  DMA_InitStructure.DMA_BufferSize = (uint32_t)IMAGE_SIZE*2;
+  DMA_InitStructure.DMA_BufferSize = (uint32_t)UART_TX_SIZE;
   DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&(USART2->DR);
   DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
   DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
   DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
   DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
-  DMA_InitStructure.DMA_Mode = DMA_Mode_Circular;
+  DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
   DMA_InitStructure.DMA_Priority = DMA_Priority_High;
   DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Enable;
   DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;

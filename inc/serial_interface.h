@@ -11,6 +11,8 @@ typedef enum{
 }USARTTransStateTypeDef;
 
 extern USARTTransStateTypeDef usartTransStateTypeDef;
+extern uint32_t totalTransmitSize;
+extern uint32_t alreadyTransmitSize;
 
 void SerialInterfaceInit();
 bool UartInsertByte(char byte);
@@ -21,7 +23,9 @@ bool UartPrint(USART_TypeDef* USARTx, const char* buf);
 bool UartPrintBuf(USART_TypeDef* USARTx, char* buf, int length);
 void DMA1_Interrupt_Enable(void);
 void DMA1_Interrupt_Disable(void);
-bool UartDMASend();
+bool UartDMASendFromBeginning();
+bool UartDMASendContinue();
+void setTransmitSize(uint32_t size);
 
 bool I2CStart(I2C_TypeDef* I2Cx, uint8_t address, uint8_t direction);
 bool I2CReadByte(I2C_TypeDef* I2Cx, uint8_t *pByte, bool isAck);

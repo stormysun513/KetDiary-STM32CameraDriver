@@ -262,6 +262,10 @@ void DMA1_Stream6_IRQHandler(void){
     
     usartTransStateTypeDef = USART_IDLE;
 //    UartPrint(USART2,"DMA1 finished \n\n"); 
+    alreadyTransmitSize += UART_TX_SIZE;
+    if(alreadyTransmitSize < totalTransmitSize){
+      UartDMASendContinue();
+    }
     DMA_ClearFlag(DMA1_Stream6, DMA_FLAG_TCIF6);
   }
 }

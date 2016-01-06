@@ -24,10 +24,12 @@ char preamble[] = {0xFF, 0xFF, 0x7F};
 
 static RingBuffer uart_rx_buf;
 USARTTransStateTypeDef usartTransStateTypeDef = USART_IDLE;
+uint32_t totalTransmitSize = 0;
+uint32_t alreadyTransmitSize = 0;
+
 
 extern __IO int32_t Timeout;
 extern int32_t max_timeout;
-extern uint16_t image[IMAGE_SIZE];
 
 void SerialInterfaceInit(){
   RingBuffer_init(&uart_rx_buf);
@@ -75,8 +77,9 @@ void UartPktParse(){
         case TYPE2:
           if(appStateTypeDef == CAPTURED)
             appStateTypeDef = CAMERAIDLE;
+          setTransmitSize(160*120*2);                   // Should bu modified in the future
           UartPrintBuf(USART2, preamble, 3);
-          UartDMASend();
+          UartDMASendFromBeginning();
           break;
         case TYPE3:
 //          UartPrint(USART2, "Debug!\n");
@@ -154,7 +157,7 @@ void DMA1_Interrupt_Disable(void){
   NVIC_DisableIRQ(DMA1_Stream6_IRQn);
 }
 
-bool UartDMASend(){
+bool UartDMASendFromBeginning(){
   if(usartTransStateTypeDef == USART_IDLE){
     DMA1_Stream6->M0AR = (uint32_t)image;
     DMA_Cmd(DMA1_Stream6, ENABLE);
@@ -166,6 +169,25 @@ bool UartDMASend(){
   }
   else
     return false;
+}
+
+bool UartDMASendContinue(){
+  if(usartTransStateTypeDef == USART_IDLE){
+//    DMA1_Stream6->M0AR = (uint32_t)image;
+    DMA_Cmd(DMA1_Stream6, ENABLE);
+    DMA1_Interrupt_Enable();
+    
+    USART_DMACmd(USART2, USART_DMAReq_Tx, ENABLE);
+    usartTransStateTypeDef = USART_TRANSFERING;
+    return true;
+  }
+  else
+    return false;
+}
+
+void setTransmitSize(uint32_t size){
+  alreadyTransmitSize = 0;
+  totalTransmitSize = size;
 }
 
 bool I2CStart(I2C_TypeDef* I2Cx, uint8_t address, uint8_t direction){

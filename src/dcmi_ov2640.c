@@ -57,7 +57,7 @@
 //extern __IO int32_t Timeout;
 //static I2C_TypeDef* I2Cx = I2C2;
 //static int32_t max_timeout = MAX_TIMEOUT;
-extern uint16_t image[160*120];
+
     
     
 /* QQVGA 160x120 */

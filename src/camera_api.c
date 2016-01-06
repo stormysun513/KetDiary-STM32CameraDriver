@@ -225,6 +225,12 @@ void Camera_Config(void)
         OV2640_QVGAConfig();
         break;
       }
+      case JPEG_320x240:
+      {
+        OV2640_HW_Init();
+        OV2640_Init(JPEG_320x240);
+        OV2640_JPEGConfig(JPEG_320x240);
+      }
       default:
       {
         /* Configure the OV2640 camera and set the QQVGA mode */
@@ -348,7 +354,6 @@ void CameraCapture(void){
 
   /* Insert 100ms delay: wait 100ms */
   DelayMs(300); 
-
   DCMI_CaptureCmd(ENABLE); 
 }
 
@@ -356,9 +361,6 @@ void CameraInterfaceReset(void){
   OV2640_Interrupt_Disable();
   OV2640_ResetDMAAddress();
   OV2640_Interrupt_Enable();
-//  OV2640_HW_Init();
-//  OV2640_DMA_Init();
-//  OV2640_DCMI_Init(BMP_QQVGA);
 }
 
 
