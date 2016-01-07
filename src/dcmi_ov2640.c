@@ -1350,11 +1350,13 @@ void OV2640_DMA_Init(void){
   DMA_InitStructure.DMA_PeripheralBaseAddr = DCMI_DR_ADDRESS;	
   DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)image;             //
   DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory;
-  DMA_InitStructure.DMA_BufferSize = IMAGE_SIZE/2;
+//  DMA_InitStructure.DMA_BufferSize = IMAGE_SIZE/2;
+  DMA_InitStructure.DMA_BufferSize = MAX_BUF_SIZE;
   DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
   DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;              //
   DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Word; //?
-  DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;     //?
+//  DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;     //?
+  DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
   DMA_InitStructure.DMA_Mode = DMA_Mode_Circular;
   DMA_InitStructure.DMA_Priority = DMA_Priority_High;
   DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Enable;
@@ -1413,13 +1415,21 @@ void OV2640_DCMI_Init(ImageFormat_TypeDef ImageFormat){
     case BMP_QVGA:
     {
       /* DCMI configuration */
+//      DCMI_InitStructure.DCMI_VSPolarity = DCMI_VSPolarity_High;
       DCMI_Init(&DCMI_InitStructure);
       break;
     }
-     default:
+    case JPEG_160x120:
+    case JPEG_320x240:
+    {
+      DCMI_Init(&DCMI_InitStructure);
+      DCMI_JPEGCmd(ENABLE);
+      break;
+    }
+    default:
     {
       /* DCMI configuration */ 
-      DCMI_InitStructure.DCMI_VSPolarity = DCMI_VSPolarity_High;
+//      DCMI_InitStructure.DCMI_VSPolarity = DCMI_VSPolarity_High;
       DCMI_Init(&DCMI_InitStructure);
       break;
     }
@@ -1436,6 +1446,7 @@ void OV2640_DCMI_Init(ImageFormat_TypeDef ImageFormat){
 void OV2640_ResetDMAAddress(void){
    DMA_Cmd(DMA2_Stream1, DISABLE);
    DMA2_Stream1->M0AR = (uint32_t)image;
+   DMA2_Stream1->NDTR = MAX_BUF_SIZE;
 }
 
 void OV2640_Interrupt_Disable(void){

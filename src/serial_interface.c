@@ -21,6 +21,7 @@ const char TYPE1 = 0x01;      //ECG
 const char TYPE2 = 0x02;      //ACC
 const char TYPE3 = 0x03;      //TMP
 char preamble[] = {0xFF, 0xFF, 0x7F};
+char data[] = {0, 0, 0, 0};
 
 static RingBuffer uart_rx_buf;
 USARTTransStateTypeDef usartTransStateTypeDef = USART_IDLE;
@@ -75,12 +76,19 @@ void UartPktParse(){
           }
           break;
         case TYPE2:
+        {
           if(appStateTypeDef == CAPTURED)
             appStateTypeDef = CAMERAIDLE;
-          setTransmitSize(160*120*2);                   // Should bu modified in the future
+//          setTransmitSize(160*120*2);                   // Should bu modified in the future
+          data[0] = (totalTransmitSize >> 24) & 0xFF;
+          data[1] = (totalTransmitSize >> 16) & 0xFF;
+          data[2] = (totalTransmitSize >> 8) & 0xFF;
+          data[3] = totalTransmitSize & 0xFF;
           UartPrintBuf(USART2, preamble, 3);
+          UartPrintBuf(USART2, data, 4);
           UartDMASendFromBeginning();
           break;
+        }
         case TYPE3:
 //          UartPrint(USART2, "Debug!\n");
           UartPrintBuf(USART2, preamble, 3);

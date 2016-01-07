@@ -28,6 +28,7 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
+#include <cstdio>
 #include "stm32f4xx.h"
 #include "stm32f4xx_it.h"
 #include "stm32f4xx_dcmi.h"
@@ -236,7 +237,12 @@ void DCMI_IRQHandler(void)
   else if(DCMI_GetFlagStatus(DCMI_FLAG_FRAMERI) == SET)
   {
     UartPrint(USART2, "DCMI_FLAG_FRAMERI \n\n");
-    appStateTypeDef = CAPTURED;
+//    uint16_t count = (MAX_BUF_SIZE-DMA2_Stream1->NDTR)*4;
+    setTransmitSize((MAX_BUF_SIZE-DMA2_Stream1->NDTR)*4);
+//    sprintf(DebugString, "Debug : %d \n", count);
+//    UartPrint(USART2, DebugString);
+    
+    appStateTypeDef = CAPPOSTPROCESSING;
     DCMI_CaptureCmd(DISABLE);
     CameraInterfaceReset(); 
     DCMI_ClearFlag(DCMI_FLAG_FRAMERI);

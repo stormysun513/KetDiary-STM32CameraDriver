@@ -18,7 +18,8 @@ extern __IO uint32_t TimmingDelay;
 RCC_ClocksTypeDef RCC_Clocks;
 char DebugString[50];
 uint8_t result[5];
-volatile uint16_t image[IMAGE_SIZE] = {0};
+//volatile uint16_t image[IMAGE_SIZE] = {0};
+volatile uint8_t image[MAX_BUF_SIZE] = {0};
 
 volatile AppStateTypeDef appStateTypeDef = CAMERAIDLE;
 
@@ -147,7 +148,8 @@ int main()
   DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
   DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
   DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
-  DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
+//  DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
+  DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
   DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
   DMA_InitStructure.DMA_Priority = DMA_Priority_High;
   DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Enable;
@@ -173,8 +175,8 @@ int main()
   RCC_GetClocksFreq(&RCC_Clocks); 
   UartPrint(USART2, "Peripherals are initialized successfully.\n");
   
-  if(I2CReadMulti(I2C2, (uint8_t)TMP102_ADDR, result, 2)){
-    float celcius = computeTemperature(result[0], result[1]);
+  if(I2CReadMulti(I2C2, (uint8_t)TMP102_ADDR, (uint8_t*)DebugString, 2)){
+    float celcius = computeTemperature(DebugString[0], DebugString[1]);
     sprintf(DebugString, "Temp : %4.2f\n", celcius);
     UartPrint(USART2, DebugString);
   }
@@ -212,14 +214,33 @@ int main()
       appStateTypeDef = CAPTURING;
       i = 0;
       break;
+    case CAPPOSTPROCESSING:
+      for(i = totalTransmitSize-1; i > 0; i--){
+        if( image[i] != 0 ){
+          if(image[i] == 0xD9 && image[i-1] == 0xFF){
+            setTransmitSize(i+1);
+            sprintf(DebugString, "PostProcessed size: %d.\n", i+1);
+            UartPrint(USART2, DebugString);
+          }
+          else{
+            UartPrint(USART2, "Err while checking JPEG format!\n");
+          }
+          i = 0;
+          break;
+        } 
+      }
+      appStateTypeDef = CAPTURED;
+      break;
     case CAPTURED:
-//      sprintf(DebugString, "Debug : 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x\n",
-//                                    image[i+0], image[i+1], image[i+2], image[i+3], image[i+4]);
-//      UartPrint(USART2, DebugString);
-//      i += 5;
-//      if(i >= 19200)
-//        i = 0;
-//      break;
+//      if(i < totalTransmitSize){
+//        for(;i < totalTransmitSize-4;){
+//          sprintf(DebugString, "Debug %04d : 0x%02x, 0x%02x, 0x%02x, 0x%02x \n",
+//                                    i, image[i+0], image[i+1], image[i+2], image[i+3]);
+//          UartPrint(USART2, DebugString);
+//          i += 4;
+//        }
+//      }
+      break;
     case CAPTURING:
     case CAMERAIDLE:
     default:

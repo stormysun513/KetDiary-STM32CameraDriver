@@ -48,17 +48,17 @@
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 /* Image Formats */
-const uint8_t *ImageForematArray[] =
-{
-  (uint8_t*)"BMP QQVGA Format    ",
-  (uint8_t*)"BMP QVGA Format     ",
-};
+//const uint8_t *ImageForematArray[] =
+//{
+//  (uint8_t*)"BMP QQVGA Format    ",
+//  (uint8_t*)"BMP QVGA Format     ",
+//};
 //static __IO uint32_t TimingDelay;
 //__IO uint32_t PressedKey = 0;
-uint8_t ValueMin = 0, ValueMax = 0;
+//uint8_t ValueMin = 0, ValueMax = 0;
 Camera_TypeDef Camera = OV2640_CAMERA;
-ImageFormat_TypeDef ImageFormat = BMP_QQVGA;
-
+//ImageFormat_TypeDef ImageFormat = BMP_QQVGA;
+ImageFormat_TypeDef ImageFormat = JPEG_320x240;
 /* Private function prototypes -----------------------------------------------*/
 /* Private functions ---------------------------------------------------------*/
 
@@ -225,11 +225,19 @@ void Camera_Config(void)
         OV2640_QVGAConfig();
         break;
       }
+      case JPEG_160x120:
+      {
+        OV2640_HW_Init();
+        OV2640_Init(JPEG_160x120);
+        OV2640_JPEGConfig(JPEG_160x120);
+        break;
+      }
       case JPEG_320x240:
       {
         OV2640_HW_Init();
         OV2640_Init(JPEG_320x240);
         OV2640_JPEGConfig(JPEG_320x240);
+        break;
       }
       default:
       {
