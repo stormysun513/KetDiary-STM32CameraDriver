@@ -9,7 +9,7 @@
 #include "camera_api.h"
 #include "dcmi_ov2640.h"
 
-#define BAUDRATE                115200
+#define BAUDRATE                14400
 #define I2C_CLOCK_SPEED         100000
 #define OWN_ADDR                0x3C
 
@@ -18,10 +18,9 @@ extern __IO uint32_t TimmingDelay;
 RCC_ClocksTypeDef RCC_Clocks;
 char DebugString[50];
 uint8_t result[5];
-//volatile uint16_t image[IMAGE_SIZE] = {0};
 volatile uint8_t image[MAX_BUF_SIZE] = {0};
-
 volatile AppStateTypeDef appStateTypeDef = CAMERAIDLE;
+bool initialized = false; 
 
 int main()
 { 
@@ -173,16 +172,16 @@ int main()
   
   //DEBUG PURPOSE
   RCC_GetClocksFreq(&RCC_Clocks); 
-  UartPrint(USART2, "Peripherals are initialized successfully.\n");
+//  UartPrint(USART2, "Peripherals are initialized successfully.\n");
   
-  if(I2CReadMulti(I2C2, (uint8_t)TMP102_ADDR, (uint8_t*)DebugString, 2)){
-    float celcius = computeTemperature(DebugString[0], DebugString[1]);
-    sprintf(DebugString, "Temp : %4.2f\n", celcius);
-    UartPrint(USART2, DebugString);
-  }
-  else{
-    UartPrint(USART2, "I2C failed.\n");
-  }
+//  if(I2CReadMulti(I2C2, (uint8_t)TMP102_ADDR, (uint8_t*)DebugString, 2)){
+//    float celcius = computeTemperature(DebugString[0], DebugString[1]);
+//    sprintf(DebugString, "Temp : %4.2f\n", celcius);
+//    UartPrint(USART2, DebugString);
+//  }
+//  else{
+//    UartPrint(USART2, "I2C failed.\n");
+//  }
   
   //Initialize OV2640
   SCCB_GPIO_Config(); 
@@ -191,22 +190,30 @@ int main()
   OV2640_IDTypeDef OV2640ID;
   OV2640_ReadID(&OV2640ID);
   Camera_Config();
-  if(OV2640ID.PIDH == OV2640_ID)
-    UartPrint(USART2, "Camera is initialized.\n");
-  else
-    UartPrint(USART2, "Camera failed.\n");
-//  GPIO_ToggleBits(GPIOD, GPIO_Pin_12);
+  if(OV2640ID.PIDH == OV2640_ID){
+//    UartPrint(USART2, "Camera is initialized.\n");
+  }
+  else{
+//    UartPrint(USART2, "Camera failed.\n");
+  }
   
+  initialized = true;
+//  CameraInterfaceReset(); 
   appStateTypeDef = CAPTURECMD;
    
   int i = 0;
   //LED Toggle
   while(1){
-    //Insert a delay of 500ms
-    DelayMs(500);
+//    //Insert a delay of 500ms
+//    DelayMs(500);
     
-    //Toggle the LED
-    GPIO_ToggleBits(GPIOD, GPIO_Pin_15);
+//    //Toggle the LED
+//    GPIO_ToggleBits(GPIOD, GPIO_Pin_15);
+    
+    uint8_t available = UartAvailableBytes();
+    if(available > 0){
+      UartPktParse();
+    }
     
     switch (appStateTypeDef) {
     case CAPTURECMD:
@@ -219,11 +226,14 @@ int main()
         if( image[i] != 0 ){
           if(image[i] == 0xD9 && image[i-1] == 0xFF){
             setTransmitSize(i+1);
-            sprintf(DebugString, "PostProcessed size: %d.\n", i+1);
-            UartPrint(USART2, DebugString);
+//            sprintf(DebugString, "PostProcessed size: %d.\n", i+1);
+//            UartPrint(USART2, DebugString);
+            GPIO_ResetBits(GPIOD, GPIO_Pin_12);
+            notifyImageInfo();
           }
           else{
-            UartPrint(USART2, "Err while checking JPEG format!\n");
+            setTransmitSize(0);
+//            UartPrint(USART2, "Err while checking JPEG format!\n");
           }
           i = 0;
           break;
@@ -232,23 +242,12 @@ int main()
       appStateTypeDef = CAPTURED;
       break;
     case CAPTURED:
-//      if(i < totalTransmitSize){
-//        for(;i < totalTransmitSize-4;){
-//          sprintf(DebugString, "Debug %04d : 0x%02x, 0x%02x, 0x%02x, 0x%02x \n",
-//                                    i, image[i+0], image[i+1], image[i+2], image[i+3]);
-//          UartPrint(USART2, DebugString);
-//          i += 4;
-//        }
-//      }
-      break;
     case CAPTURING:
     case CAMERAIDLE:
     default:
       break;
     }
   }
-
-  return 0;
 }
 
 /**
@@ -256,6 +255,10 @@ int main()
   * @param  nTime: specifies the delay time length, in milliseconds
   * @retval None
   */
+void FlashLED(void){
+   GPIO_ToggleBits(GPIOD, GPIO_Pin_15);
+}
+
 void DelayMs(__IO uint32_t time){
   TimmingDelay = time*10;
   while(TimmingDelay != 0){

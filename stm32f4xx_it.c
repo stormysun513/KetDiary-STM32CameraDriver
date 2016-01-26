@@ -148,6 +148,7 @@ void PendSV_Handler(void)
 __IO uint32_t TimmingDelay;
 __IO int32_t Timeout;
 int32_t max_timeout;
+int32_t counter = 0;
 void SysTick_Handler(void)
 {
   if(TimmingDelay != 0)
@@ -155,6 +156,12 @@ void SysTick_Handler(void)
   
   if(Timeout > 0)
     Timeout--;
+  
+  if( ++counter == 5000){
+    counter = 0;
+    if(initialized == true)
+      FlashLED();
+  }
 }
 
 /******************************************************************************/
@@ -190,11 +197,7 @@ void USART2_IRQHandler(void)
     char byte = (char)USART_ReceiveData(USART2);
     if(!(USART2->SR & USART_FLAG_ERRORS))
       UartInsertByte(byte);
-    
-    uint8_t available = UartAvailableBytes();
-    if(available >= 3){
-      UartPktParse();
-    }
+   
     USART_ClearITPendingBit(USART2, USART_IT_RXNE);
   }
   /* ------------------------------------------------------------ */
@@ -236,8 +239,7 @@ void DCMI_IRQHandler(void)
   }
   else if(DCMI_GetFlagStatus(DCMI_FLAG_FRAMERI) == SET)
   {
-    UartPrint(USART2, "DCMI_FLAG_FRAMERI \n\n");
-//    uint16_t count = (MAX_BUF_SIZE-DMA2_Stream1->NDTR)*4;
+//    UartPrint(USART2, "DCMI_FLAG_FRAMERI \n\n");
     setTransmitSize((MAX_BUF_SIZE-DMA2_Stream1->NDTR)*4);
 //    sprintf(DebugString, "Debug : %d \n", count);
 //    UartPrint(USART2, DebugString);
@@ -254,7 +256,7 @@ void DCMI_IRQHandler(void)
   }
   else if(DCMI_GetFlagStatus(DCMI_FLAG_OVFRI) == SET)
   {
-    UartPrint(USART2,"DCMI_FLAG_OVFRI \n\n");  //********** Unfortunately.. my code always comes here
+    UartPrint(USART2,"DCMI_FLAG_OVFRI \n\n"); 
     DCMI_ClearFlag(DCMI_FLAG_OVFRI);
   }
 }
@@ -269,9 +271,10 @@ void DMA1_Stream6_IRQHandler(void){
     usartTransStateTypeDef = USART_IDLE;
 //    UartPrint(USART2,"DMA1 finished \n\n"); 
     alreadyTransmitSize += UART_TX_SIZE;
-    if(alreadyTransmitSize < totalTransmitSize){
-      UartDMASendContinue();
-    }
+    if(isChecksum == 1)
+      UartPrintBuf(USART2, (char*)&checksum, 1);
+    else
+      isChecksum = 2;
     DMA_ClearFlag(DMA1_Stream6, DMA_FLAG_TCIF6);
   }
 }

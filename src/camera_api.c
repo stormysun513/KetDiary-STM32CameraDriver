@@ -355,6 +355,7 @@ void OV2640_SpecialEffects(uint8_t index)
 
 void CameraCapture(void){
   /* Enable DMA2 stream 1 and DCMI interface then start image capture */
+  GPIO_SetBits(GPIOD, GPIO_Pin_12);
   DMA_Cmd(DMA2_Stream1, ENABLE); 
   
   if((DCMI->CR & (uint32_t)DCMI_CR_ENABLE) == RESET)

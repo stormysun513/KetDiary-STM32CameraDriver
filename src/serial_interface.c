@@ -17,11 +17,23 @@
 static volatile bool isFirstUartPreamble = false;
 static volatile bool isSecondUartPreamble = false;
 
-const char TYPE1 = 0x01;      //ECG
-const char TYPE2 = 0x02;      //ACC
-const char TYPE3 = 0x03;      //TMP
+const char BLE_REQUEST_IMAGE_INFO = 0x03;               //BLE_REQUEST_IMAGE_INFO
+const char BLE_REQUEST_IMAGE_BY_INDEX = 0x04;           //BLE_REQUEST_IMAGE_BY_INDEX
+const char BLE_TAKE_PHOTO = 0x07;
+const char BLE_REQUEST_ENTIRE_IMAGE = 0x08;
+
+const char UART_REPLY_IMAGE_INFO = 0x00;                //UART_REPLY_IMAGE_INFO
+const char UART_REPLY_IMAGE_PACKET = 0x03;              //UART_REPLY_IMAGE_PACKET
+
+const char TYPE1 = 0xF1;      
+const char TYPE2 = 0xF2;      //ACC
+const char TYPE3 = 0xF3;      //TMP
 char preamble[] = {0xFF, 0xFF, 0x7F};
 char data[] = {0, 0, 0, 0};
+
+uint8_t isChecksum = 0;
+uint8_t checksum = 0;
+const uint32_t uartPacketSize = 111;
 
 static RingBuffer uart_rx_buf;
 USARTTransStateTypeDef usartTransStateTypeDef = USART_IDLE;
@@ -45,6 +57,159 @@ int UartAvailableBytes(){
 }
 
 void UartPktParse(){
+  
+  static char waitHeaderType;
+  static bool waitMore = false;
+  static uint8_t waitNum = 0;
+  static char data[] = {0, 0, 0, 0};
+  while(UartAvailableBytes() > 0){
+    /* Modified after adjust baudrate to 14400 */
+//    DelayUs(400);
+    /* end */
+    
+    char byte;
+    RingBuffer_readbyte(&uart_rx_buf, &byte);
+		
+    if(!isFirstUartPreamble && byte == FIRST_PREAMBLE){
+//      UartPrint(USART2, "ACK1!\n");
+      isFirstUartPreamble = true;
+    }
+    else if(isFirstUartPreamble){
+      if(isSecondUartPreamble == false){
+        if(byte == SECOND_PREAMBLE){
+//          UartPrint(USART2, "ACK2!\n");
+          isSecondUartPreamble = true;
+        }
+        else if(byte != FIRST_PREAMBLE){
+//          UartPrint(USART2, "NACK2!\n");
+          isFirstUartPreamble = false;
+        }
+        else{
+//          UartPrint(USART2, "WAIT ACK2!\n");
+          // Else keep waiting for second preamble
+        }
+      }
+      else{
+//        UartPrint(USART2, "DATA!\n");
+        //Uart Packet with accurate header
+        char header = byte;
+        if(waitMore == true)
+          header = waitHeaderType;
+          
+        switch (header){
+        case BLE_REQUEST_ENTIRE_IMAGE:                          // 0x08
+        {
+          if(appStateTypeDef == CAPTURED)
+            appStateTypeDef = CAMERAIDLE;
+          data[0] = (totalTransmitSize >> 24) & 0xFF;
+          data[1] = (totalTransmitSize >> 16) & 0xFF;
+          data[2] = (totalTransmitSize >> 8) & 0xFF;
+          data[3] = totalTransmitSize & 0xFF;
+          isChecksum = 0;
+          UartPrintBuf(USART2, preamble, 3);
+          UartPrintBuf(USART2, data, 4);
+          UartDMASendFromBeginning();
+          break;
+        }
+        case BLE_REQUEST_IMAGE_INFO:                            // 0x03
+        {
+          switch (appStateTypeDef){
+          case CAPTURED:
+          case CAMERAIDLE:
+            appStateTypeDef = CAPTURECMD;
+            break;
+          default:
+            break;
+          }
+//          notifyImageInfo();
+          break;
+        }
+        case BLE_TAKE_PHOTO:                                    // 0x07
+        {
+//          UartPrint(USART2, "OK!\n");
+          switch (appStateTypeDef){
+          case CAPTURED:
+            appStateTypeDef = CAMERAIDLE;
+            break;
+          case CAMERAIDLE:
+            appStateTypeDef = CAPTURECMD;
+            break;
+          default:
+            break;
+          }
+          break;
+        }
+        case BLE_REQUEST_IMAGE_BY_INDEX:                        // 0x04
+        {
+          if(waitMore == false){
+            waitNum = 2;
+            waitMore = true;
+            waitHeaderType = byte;
+          }
+          else{
+            data[--waitNum] = byte;
+            GPIO_ToggleBits(GPIOD, GPIO_Pin_14);
+            if(waitNum == 0){
+              waitMore = false;
+              /* TODO */
+              isChecksum = 0;
+              // Not that the order is opposite to both nordic and android
+              uint32_t currentId = (data[1] << 8) +  data[0] & 0xFF;
+              uint32_t beginning = currentId*uartPacketSize;
+              uint32_t remainPacketSize = totalTransmitSize - beginning;
+              if(remainPacketSize > uartPacketSize)
+                remainPacketSize = uartPacketSize;
+              char tempBuf[3] = {0};
+              tempBuf[0] = UART_REPLY_IMAGE_PACKET;
+              tempBuf[1] = data[1];
+              tempBuf[2] = data[0];
+              
+              UartPrintBuf(USART2, preamble+1, 2);
+              UartPrintBuf(USART2, tempBuf, 3);
+              UartDMASendPartial(beginning, remainPacketSize);
+              checksum = 0;
+              for(int i = 0; i < remainPacketSize; i++)
+                checksum += image[i+beginning];
+              
+              if(isChecksum == 2)
+                UartPrintBuf(USART2, (char*)&checksum, 1);
+              else
+                isChecksum = 1;
+            }
+          }
+          break;
+        }
+        case TYPE1:
+          UartPrint(USART2, "OK!\n");
+          switch (appStateTypeDef){
+          case CAPTURED:
+            appStateTypeDef = CAMERAIDLE;
+            break;
+          case CAMERAIDLE:
+            appStateTypeDef = CAPTURECMD;
+            break;
+          default:
+            break;
+          }
+          break;
+        case TYPE2:
+          notifyImageInfo();
+          break;
+        default:
+          break;
+        }
+        
+        if(waitMore == false){
+          isFirstUartPreamble = false;
+          isSecondUartPreamble = false;
+          break;
+        }
+      }
+    }
+  }
+}
+
+void UartPktParse2(){
   while(UartAvailableBytes() > 0){
     char byte;
     RingBuffer_readbyte(&uart_rx_buf, &byte);
@@ -165,9 +330,14 @@ void DMA1_Interrupt_Disable(void){
   NVIC_DisableIRQ(DMA1_Stream6_IRQn);
 }
 
-bool UartDMASendFromBeginning(){
+bool UartDMASendFromBeginning(void){
+  if(totalTransmitSize == 0)
+    return false;
+  
   if(usartTransStateTypeDef == USART_IDLE){
     DMA1_Stream6->M0AR = (uint32_t)image;
+    DMA1_Stream6->NDTR = totalTransmitSize;
+    
     DMA_Cmd(DMA1_Stream6, ENABLE);
     DMA1_Interrupt_Enable();
     
@@ -175,13 +345,15 @@ bool UartDMASendFromBeginning(){
     usartTransStateTypeDef = USART_TRANSFERING;
     return true;
   }
-  else
+  else{
     return false;
+  }
 }
 
-bool UartDMASendContinue(){
+bool UartDMASendContinue(void){
   if(usartTransStateTypeDef == USART_IDLE){
-//    DMA1_Stream6->M0AR = (uint32_t)image;
+    DMA1_Stream6->M0AR = (uint32_t)(image+alreadyTransmitSize);
+    DMA1_Stream6->NDTR = totalTransmitSize-alreadyTransmitSize;
     DMA_Cmd(DMA1_Stream6, ENABLE);
     DMA1_Interrupt_Enable();
     
@@ -189,13 +361,40 @@ bool UartDMASendContinue(){
     usartTransStateTypeDef = USART_TRANSFERING;
     return true;
   }
-  else
+  else{
     return false;
+  }
+}
+
+bool UartDMASendPartial(uint32_t beginning, uint32_t length){
+  if(usartTransStateTypeDef == USART_IDLE){
+    DMA1_Stream6->M0AR = (uint32_t)((uint8_t*)image+beginning);
+    DMA1_Stream6->NDTR = length;
+    
+    DMA_Cmd(DMA1_Stream6, ENABLE);
+    DMA1_Interrupt_Enable();
+    
+    USART_DMACmd(USART2, USART_DMAReq_Tx, ENABLE);
+    usartTransStateTypeDef = USART_TRANSFERING;
+    return true;
+  }
+  else{
+    return false;
+  }
 }
 
 void setTransmitSize(uint32_t size){
   alreadyTransmitSize = 0;
   totalTransmitSize = size;
+}
+
+void notifyImageInfo(void){
+  char data[] = {0, 0, 0};
+  data[0] = UART_REPLY_IMAGE_INFO;
+  data[1] = (totalTransmitSize >> 8) & 0xFF;
+  data[2] = totalTransmitSize & 0xFF;
+  UartPrintBuf(USART2, preamble+1, 2);
+  UartPrintBuf(USART2, data, 3);
 }
 
 bool I2CStart(I2C_TypeDef* I2Cx, uint8_t address, uint8_t direction){

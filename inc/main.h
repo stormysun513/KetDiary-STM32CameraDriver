@@ -6,6 +6,7 @@
 #define MAX_BUF_SIZE             57600
 #define UART_TX_SIZE             160*120*2       //19200 bytes
 
+void FlashLED(void);
 void DelayMs(__IO uint32_t time);
 void DelayUs(__IO uint32_t time);
 
@@ -18,8 +19,8 @@ typedef enum{
 }AppStateTypeDef;
 
 extern char DebugString[50];
+extern bool initialized;
 extern volatile AppStateTypeDef appStateTypeDef;
-//extern volatile uint16_t image[IMAGE_SIZE];
 extern volatile uint8_t image[MAX_BUF_SIZE];
 
 #endif
