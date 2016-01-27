@@ -209,67 +209,6 @@ void UartPktParse(){
   }
 }
 
-void UartPktParse2(){
-  while(UartAvailableBytes() > 0){
-    char byte;
-    RingBuffer_readbyte(&uart_rx_buf, &byte);
-		
-    if(isFirstUartPreamble == false && byte == FIRST_PREAMBLE)
-      isFirstUartPreamble = true;
-
-    if(isFirstUartPreamble){
-      if(isSecondUartPreamble == false){
-        if(byte == SECOND_PREAMBLE)
-          isSecondUartPreamble = true;
-        else if(byte != FIRST_PREAMBLE)
-          isFirstUartPreamble = false;
-      }
-      else{
-        //Uart Packet with accurate header
-        switch (byte){
-        case TYPE1:
-          UartPrint(USART2, "OK!\n");
-          switch (appStateTypeDef){
-          case CAPTURED:
-            appStateTypeDef = CAMERAIDLE;
-            break;
-          case CAMERAIDLE:
-            appStateTypeDef = CAPTURECMD;
-            break;
-          default:
-            break;
-          }
-          break;
-        case TYPE2:
-        {
-          if(appStateTypeDef == CAPTURED)
-            appStateTypeDef = CAMERAIDLE;
-//          setTransmitSize(160*120*2);                   // Should bu modified in the future
-          data[0] = (totalTransmitSize >> 24) & 0xFF;
-          data[1] = (totalTransmitSize >> 16) & 0xFF;
-          data[2] = (totalTransmitSize >> 8) & 0xFF;
-          data[3] = totalTransmitSize & 0xFF;
-          UartPrintBuf(USART2, preamble, 3);
-          UartPrintBuf(USART2, data, 4);
-          UartDMASendFromBeginning();
-          break;
-        }
-        case TYPE3:
-//          UartPrint(USART2, "Debug!\n");
-          UartPrintBuf(USART2, preamble, 3);
-          break;
-        default:
-          break;
-        }
-        
-        isFirstUartPreamble = false;
-        isSecondUartPreamble = false;
-        break;
-      }
-    }
-  }
-}
-
 bool UartPrint(USART_TypeDef* USARTx, const char* buf){
   if(usartTransStateTypeDef == USART_TRANSFERING)
     return false;
